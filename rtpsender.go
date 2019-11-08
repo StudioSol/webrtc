@@ -28,6 +28,7 @@ type RTPSender struct {
 
 	mu                     sync.RWMutex
 	sendCalled, stopCalled chan interface{}
+	payloadType            *uint8 // Senders should have a codec parameter dictionary at some point
 }
 
 // NewRTPSender constructs a new RTPSender
@@ -180,6 +181,32 @@ func (r *RTPSender) SendRTP(header *rtp.Header, payload []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		// Hopefully this next part is temporary and will be removed when senders obtain payload
+		// types from their session instead of the track.
+		// Obtain payload type for this sender. Currently taken from the sender's MediaEngine
+		// to match the track's codec, which could have a different payload type.
+		// (But tracks should not have codecs - this should be set here by the
+		// peer connection or transceiver...)
+		if r.payloadType == nil {
+			// this setup should only happen on the first call to sendRTP
+			codecs := r.api.mediaEngine.GetCodecsByName(r.track.codec.Name)
+			if len(codecs) == 0 {
+				return 0, fmt.Errorf("no %s codecs in media engine", r.track.codec.Name)
+			}
+			for _, c := range codecs {
+				if sameCodec(c, r.track.codec) {
+					r.payloadType = &c.PayloadType
+					break
+				}
+			}
+			if r.payloadType == nil {
+				return 0, fmt.Errorf("could not match %s codec from track to media engine", r.track.codec.Name)
+			}
+		}
+		// Overwrite the payload type in the RTP header.
+		if r.payloadType != nil {
+			header.PayloadType = *r.payloadType
+		}
 
 		return writeStream.WriteRTP(header, payload)
 	}
@@ -193,4 +220,29 @@ func (r *RTPSender) hasSent() bool {
 	default:
 		return false
 	}
+}
+
+// sameCodec indicates if two codecs match in type, parameters,
+// etc, not checking payload type, so it is useful for comparing
+// codecs from different MediaEngines
+func sameCodec(codecA, codecB *RTPCodec) bool {
+	if codecA.Name != codecB.Name {
+		return false
+	}
+	if codecA.Type != codecB.Type {
+		return false
+	}
+	if codecA.SDPFmtpLine != codecB.SDPFmtpLine {
+		return false
+	}
+	if codecA.Channels != codecB.Channels {
+		return false
+	}
+	if codecA.ClockRate != codecB.ClockRate {
+		return false
+	}
+	if codecA.MimeType != codecB.MimeType {
+		return false
+	}
+	return true
 }

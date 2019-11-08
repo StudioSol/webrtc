@@ -138,6 +138,17 @@ func (m *MediaEngine) GetCodecsByKind(kind RTPCodecType) []*RTPCodec {
 	return codecs
 }
 
+// GetCodecsByName returns all codecs of a chosen name in the codecs list
+func (m *MediaEngine) GetCodecsByName(codecName string) []*RTPCodec {
+	var codecs []*RTPCodec
+	for _, codec := range m.codecs {
+		if codec.Name == codecName {
+			codecs = append(codecs, codec)
+		}
+	}
+	return codecs
+}
+
 // Names for the default codecs supported by Pion WebRTC
 const (
 	PCMU = "PCMU"
