@@ -232,9 +232,9 @@ func sameCodec(codecA, codecB *RTPCodec) bool {
 	if codecA.Type != codecB.Type {
 		return false
 	}
-	if codecA.SDPFmtpLine != codecB.SDPFmtpLine {
-		return false
-	}
+	// if codecA.SDPFmtpLine != codecB.SDPFmtpLine {
+	// 	return false
+	// }
 	if codecA.Channels != codecB.Channels {
 		return false
 	}
